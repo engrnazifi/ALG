@@ -335,8 +335,8 @@ CHANNEL = "@Algaitamoviestore"
 PAYSTACK_SECRET = os.getenv("PAYSTACK_SECRET")
 PAYSTACK_PUBLIC = os.getenv("PAYSTACK_PUBLIC")
 PAYSTACK_REDIRECT_URL = os.getenv("PAYSTACK_REDIRECT_URL")
-PAYSTACK_WEBHOOK_SECRET = os.getenv("PAYSTACK_WEBHOOK_SECRET")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+
 PAYSTACK_BASE = "https://api.paystack.co"
 
 
@@ -347,16 +347,23 @@ SEND_ADMIN_PAYMENT_NOTIF = False
 
 ADMIN_USERNAME = "Nazifiibr"
 
+
 # ========= IMPORTS =========
 import telebot
+import hmac
+import hashlib
+import requests
 from flask import Flask, request
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+
 
 # ========= BOT =========
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
+
 # ========= FLASK =========
 app = Flask(__name__)
+
 
 # ========= PAYSTACK PAYMENT =========
 def create_paystack_payment(user_id, order_id, amount, title):
@@ -402,9 +409,6 @@ def create_paystack_payment(user_id, order_id, amount, title):
         return None
 
 
-
-
-
 # ========= HOME / KEEP ALIVE =========
 @app.route("/")
 def home():
@@ -428,6 +432,7 @@ def paystack_callback():
     </body>
     </html>
     """
+
 
 # ========= FEEDBACK =========
 def send_feedback_prompt(user_id, order_id):
@@ -455,30 +460,25 @@ def send_feedback_prompt(user_id, order_id):
     )
 
 
-
 # ========= PAYSTACK WEBHOOK =========
 @app.route("/webhook", methods=["POST"])
 def paystack_webhook():
 
     print("🔔 PAYSTACK WEBHOOK RECEIVED")
 
-    if not PAYSTACK_WEBHOOK_SECRET:
-        print("❌ PAYSTACK_WEBHOOK_SECRET missing")
-        return "Server error", 500
-
     signature = request.headers.get("x-paystack-signature")
     if not signature:
-        print("❌ Missing signature")
+        print("❌ Missing Paystack signature")
         return "Missing signature", 401
 
     computed = hmac.new(
-        PAYSTACK_WEBHOOK_SECRET.encode(),
+        PAYSTACK_SECRET.encode(),
         request.data,
         hashlib.sha512
     ).hexdigest()
 
     if signature != computed:
-        print("❌ Invalid signature")
+        print("❌ Invalid Paystack signature")
         return "Invalid signature", 401
 
     payload = request.json or {}
@@ -536,7 +536,8 @@ def paystack_webhook():
 
 🧾 Order ID: <code>{order_id}</code>
 💳 Amount: ₦{paid_amount}
-Click download our costumer:""",
+
+Click download:""",
         parse_mode="HTML",
         reply_markup=kb
     )
@@ -545,11 +546,7 @@ Click download our costumer:""",
     return "OK", 200
 
 
-
-
-
-
-
+# ========= TELEGRAM WEBHOOK =========
 @app.route("/telegram", methods=["POST"])
 def telegram_webhook():
     update = telebot.types.Update.de_json(
@@ -557,6 +554,7 @@ def telegram_webhook():
     )
     bot.process_new_updates([update])
     return "OK", 200
+
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("deliver:"))
 def deliver_items(call):
