@@ -1110,10 +1110,9 @@ def reply_menu(uid=None):
     my_orders_label   = "Pending order"
 
     cart_label    = tr_user(uid, "btn_cart", default="Check cart")
+    films_label   = "🎬Check Films"
     support_label = tr_user(uid, "btn_support", default="📞Help Center")
     channel_label = tr_user(uid, "btn_channel", default="🏘Our Channel")
-
-    check_films_label = "🎬 Check Films"   # 🆕 sabon button
 
     # ===== ROW 1 (PAID + MY ORDERS) =====
     kb.row(
@@ -1121,38 +1120,40 @@ def reply_menu(uid=None):
         InlineKeyboardButton(my_orders_label, callback_data="myorders_new")
     )
 
-    # ===== ROW 2 (CART + SUPPORT) =====
+    # ===== ROW 2 (CHECK FILMS + SUPPORT) =====
     kb.row(
-        InlineKeyboardButton(cart_label, callback_data="viewcart"),
+        InlineKeyboardButton(
+            films_label,
+            url=f"https://t.me/{CHANNEL.lstrip('@')}"
+        ),
         InlineKeyboardButton(
             support_label,
             url=f"https://t.me/{ADMIN_USERNAME}"
         )
     )
 
-    # ===== ROW 3 (CHANNEL + CHECK FILMS) =====
+    # ===== ROW 3 (OUR CHANNEL + CHECK CART) =====
     kb.row(
         InlineKeyboardButton(
             channel_label,
             url=f"https://t.me/{CHANNEL.lstrip('@')}"
         ),
         InlineKeyboardButton(
-            check_films_label,
-            url=f"https://t.me/{CHANNEL.lstrip('@')}"
+            cart_label,
+            callback_data="viewcart"
         )
     )
 
     # ===== ADMIN ONLY BUTTONS =====
     if uid in ADMINS:
         kb.add(
-            InlineKeyboardButton(
-                "☢SERIES&ADD🎬",
-                callback_data="groupitems"
-            )
+            InlineKeyboardButton("☢SERIES&ADD🎬", callback_data="groupitems")
         )
 
     return kb
 # end
+
+
 
 
 
