@@ -424,7 +424,7 @@ def paystack_callback():
         <h2>✅ Payment Successful</h2>
         <p>An tabbatar da biyan ka.</p>
         <p>Kashe browser ka koma telegram</p>
-        <a href="https://t.me/Aslamtv2bot">Komawa Telegram yanzu</a>
+        <a href="https://t.me/Algaitabot">Komawa Telegram yanzu</a>
     </body>
     </html>
     """
