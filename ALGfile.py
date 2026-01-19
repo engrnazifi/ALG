@@ -1100,7 +1100,8 @@ def mask_name(fullname):
             out.append(p[:2] + "**" + p[-1])
     return "".join(out)
 
-
+def tr_user(uid, key, default=""):
+    return default
 
 #farko
 def reply_menu(uid=None):
