@@ -460,7 +460,6 @@ def send_feedback_prompt(user_id, order_id):
         reply_markup=kb
     )
 
-
 # ========= PAYSTACK WEBHOOK =========
 @app.route("/webhook", methods=["POST"])
 def paystack_webhook():
@@ -517,12 +516,14 @@ def paystack_webhook():
     if items_count == 0:
         return "Empty order", 200
 
+    # ✅ CONFIRM PAYMENT
     conn.execute(
         "UPDATE orders SET paid=1 WHERE id=?",
         (order_id,)
     )
     conn.commit()
 
+    # ================= USER MESSAGE =================
     kb = InlineKeyboardMarkup()
     kb.add(
         InlineKeyboardButton(
@@ -536,15 +537,32 @@ def paystack_webhook():
         f"""🎉 <b>Payment Successful!</b>
 
 🗃 Order ID: <code>{order_id}</code>
-💳Total Amount: ₦{paid_amount}
+💳 Total Amount: ₦{paid_amount}
 
 Click download:""",
         parse_mode="HTML",
         reply_markup=kb
     )
 
+    # ================= PAYMENT NOTIFICATION (ADDED ONLY) =================
+    if PAYMENT_NOTIFY_GROUP:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        bot.send_message(
+            PAYMENT_NOTIFY_GROUP,
+            f"""✅ <b>NEW PAYMENT RECEIVED</b>
+
+👤 User ID: <code>{user_id}</code>
+📦 Items: {items_count}
+🧾 Order ID: <code>{order_id}</code>
+💰 Amount: ₦{paid_amount}
+⏰ Time: {now}""",
+            parse_mode="HTML"
+        )
+
     print("✅ WEBHOOK PROCESSED:", order_id)
     return "OK", 200
+
 
 
 # ========= TELEGRAM WEBHOOK =========
