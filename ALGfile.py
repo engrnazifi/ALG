@@ -425,7 +425,6 @@ def paystack_callback():
     </html>
     """
 
-
 # ========= FEEDBACK =========
 def send_feedback_prompt(user_id, order_id):
     exists = conn.execute(
@@ -452,11 +451,16 @@ def send_feedback_prompt(user_id, order_id):
     )
 
 
-# ========= WEBHOOK =========
+
+# ========= PAYSTACK WEBHOOK =========
 @app.route("/webhook", methods=["POST"])
 def paystack_webhook():
 
-    print("🔔 WEBHOOK RECEIVED")
+    print("🔔 PAYSTACK WEBHOOK RECEIVED")
+
+    if not PAYSTACK_WEBHOOK_SECRET:
+        print("❌ PAYSTACK_WEBHOOK_SECRET missing")
+        return "Server error", 500
 
     signature = request.headers.get("x-paystack-signature")
     if not signature:
@@ -464,7 +468,7 @@ def paystack_webhook():
         return "Missing signature", 401
 
     computed = hmac.new(
-        PAYSTACK_SECRET.encode(),
+        PAYSTACK_WEBHOOK_SECRET.encode(),
         request.data,
         hashlib.sha512
     ).hexdigest()
@@ -508,7 +512,10 @@ def paystack_webhook():
     if items_count == 0:
         return "Empty order", 200
 
-    conn.execute("UPDATE orders SET paid=1 WHERE id=?", (order_id,))
+    conn.execute(
+        "UPDATE orders SET paid=1 WHERE id=?",
+        (order_id,)
+    )
     conn.commit()
 
     kb = InlineKeyboardMarkup()
@@ -521,31 +528,23 @@ def paystack_webhook():
 
     bot.send_message(
         user_id,
-        f"""🎉 <b>We received your payment successfully!</b>
+        f"""🎉 <b>Payment Successful!</b>
 
 🧾 Order ID: <code>{order_id}</code>
 💳 Amount: ₦{paid_amount}
 
 Danna ƙasa domin karɓa:""",
+        parse_mode="HTML",
         reply_markup=kb
     )
 
-    if PAYMENT_NOTIFY_GROUP:
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        bot.send_message(
-            PAYMENT_NOTIFY_GROUP,
-            f"""✅ <b>NEW PAYMENT RECEIVED</b>
-
-👤 User ID: <code>{user_id}</code>
-📦 Items: {items_count}
-🧾 Order ID: <code>{order_id}</code>
-💰 Amount: ₦{paid_amount}
-⏰ Time: {now}""",
-            parse_mode="HTML"
-        )
-
-    print("🚀 WEBHOOK DONE:", order_id)
+    print("✅ WEBHOOK PROCESSED:", order_id)
     return "OK", 200
+
+
+
+
+
 
 
 @app.route("/telegram", methods=["POST"])
