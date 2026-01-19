@@ -1354,6 +1354,9 @@ def get_cart(uid):
     """, (uid,))
     return cur.fetchall()
 # ======================================
+def get_credits_for_user(user_id):
+    return 0, []
+
 # PARSE CAPTION (TITLE + PRICE)
 # ======================================
 def parse_caption_for_title_price(text):
@@ -2586,7 +2589,7 @@ def groupitem_deeplink_handler(msg):
         f"""🧺<b> New order</b>
 
 📩 <b>Items:</b> {len(items)}
-💵 <b>Total:</b> ₦{total}
+💵 <b>Total amout:</b> ₦{total}
 
 🆔 <b>Order ID:</b>
 <code>{order_id}</code>
@@ -3257,7 +3260,7 @@ def pay_all_unpaid(call):
         user_id,
         f"""🧺 <b>Old Orders</b>
 
-📩 <b>Groups:</b> {len(groups)}
+📩 <b>Total Items:</b> {len(groups)}
 💵 <b>Total Amount:</b> ₦{int(total_amount)}
 
 🆔 <b>Order ID:</b>
@@ -3905,7 +3908,7 @@ def handle_callback(c):
             uid,
             f"""🧺 <b>CART ORDER</b>
 
-💵 <b>Price:</b> ₦{total}
+💵 <b>Total amout:</b> ₦{total}
 🎞 <b>Items:</b> {len(groups)}
 
 🆔 <b>Order ID:</b>
