@@ -536,8 +536,7 @@ def paystack_webhook():
 
 🧾 Order ID: <code>{order_id}</code>
 💳 Amount: ₦{paid_amount}
-
-Danna ƙasa domin karɓa:""",
+Click download our costumer:""",
         parse_mode="HTML",
         reply_markup=kb
     )
