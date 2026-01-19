@@ -5047,4 +5047,3 @@ if __name__ == "__main__":
         # fallback (local testing only)
         print("🤖 Running in POLLING mode")
         bot.infinity_polling(skip_pending=True)
-
