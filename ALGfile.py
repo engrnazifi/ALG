@@ -1113,6 +1113,8 @@ def reply_menu(uid=None):
     support_label = tr_user(uid, "btn_support", default="📞Help Center")
     channel_label = tr_user(uid, "btn_channel", default="🏘Our Channel")
 
+    check_films_label = "🎬 Check Films"   # 🆕 sabon button
+
     # ===== ROW 1 (PAID + MY ORDERS) =====
     kb.row(
         InlineKeyboardButton(paid_orders_label, callback_data="paid_orders"),
@@ -1128,20 +1130,32 @@ def reply_menu(uid=None):
         )
     )
 
-    # ===== ROW 3 (OUR CHANNEL - URL) =====
-    kb.add(
+    # ===== ROW 3 (CHANNEL + CHECK FILMS) =====
+    kb.row(
         InlineKeyboardButton(
             channel_label,
+            url=f"https://t.me/{CHANNEL.lstrip('@')}"
+        ),
+        InlineKeyboardButton(
+            check_films_label,
             url=f"https://t.me/{CHANNEL.lstrip('@')}"
         )
     )
 
     # ===== ADMIN ONLY BUTTONS =====
     if uid in ADMINS:
-        kb.add(InlineKeyboardButton("☢SERIES&ADD🎬", callback_data="groupitems"))
-        
+        kb.add(
+            InlineKeyboardButton(
+                "☢SERIES&ADD🎬",
+                callback_data="groupitems"
+            )
+        )
+
     return kb
-#end
+# end
+
+
+
 
 def user_main_menu(uid=None):
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
