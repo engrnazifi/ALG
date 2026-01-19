@@ -534,8 +534,8 @@ def paystack_webhook():
         user_id,
         f"""🎉 <b>Payment Successful!</b>
 
-🧾 Order ID: <code>{order_id}</code>
-💳 Amount: ₦{paid_amount}
+🗃 Order ID: <code>{order_id}</code>
+💳Total Amount: ₦{paid_amount}
 
 Click download:""",
         parse_mode="HTML",
@@ -850,7 +850,7 @@ def post_to_channel(m):
 
     bot.send_message(
         CHANNEL,
-        " <b>📸📢📢📢📢📢\n\n 👥Koyi yadda zaka siya 🎬fim a 🤖BOT ɗinmu, cikin sauri da sauki sosai\n\n Cikin aminci ba jirah🥰\n\n\n 🤖@Aslamtv2bot\n\nDANNA (Click here)\n\n🔰🔰🔰🔰🔰</b>",
+        " <b>👀🤝\n\n 🤩Kada ka bari a baka labari! Koyi yadda zaka siya 🎬 fim a  cikin sauri, sauƙi kuma babu wahala\n\n Cikin aminci 100% ba tare da jira ko damuwa ba 🥰\n\n\n 🤖@Algaitabot\n\nDANNA (Click here) 🔥\n\n🔰🔰🔰🔰🔰</b>",
         parse_mode="HTML",
         reply_markup=kb
     )
@@ -1429,17 +1429,19 @@ def get_cart(uid):
     return conn.execute(
         """
         SELECT
-            c.item_id,          -- movie_id
-            i.title,            -- title
-            i.price,            -- price (GROUP price)
-            i.file_id,          -- file_id
-            i.group_key         -- GROUP KEY
+            c.item_id,
+            i.title,
+            i.price,
+            i.file_id,
+            i.group_key
         FROM cart c
         JOIN items i ON i.id = c.item_id
         WHERE c.user_id=?
         """,
         (uid,)
     ).fetchall()
+
+
 # ========== BUILD CART VIEW (GROUP-AWARE - FIXED) ==========
 def build_cart_view(uid):
     rows = get_cart(uid)
@@ -1448,10 +1450,9 @@ def build_cart_view(uid):
 
     # ===== IDAN CART BABU KOMAI =====
     if not rows:
-        text = "🛒 <b>You haven’t added any items to your cart yet,\n\n Check our channel to buy movie.</b>"
+        text = " <b>You haven’t added any items to your cart yet,\n\n Check our channel to buy movie.</b>"
 
         kb.row(
-            
             InlineKeyboardButton(
                 "🏘Our Channel",
                 url=f"https://t.me/{CHANNEL.lstrip('@')}"
@@ -1463,7 +1464,7 @@ def build_cart_view(uid):
     lines = []
 
     # ===============================
-    # HADA ITEMS TA GROUP_KEY
+    # GROUP ITEMS BY GROUP_KEY
     # ===============================
     grouped = {}
 
@@ -1473,7 +1474,7 @@ def build_cart_view(uid):
         if key not in grouped:
             grouped[key] = {
                 "ids": [],
-                "title": title or "📦 Group / Series Item",
+                "title": title or "🧺 Group / Series Item",
                 "price": int(price or 0)
             }
 
@@ -1509,15 +1510,19 @@ def build_cart_view(uid):
         + "\n".join(lines)
     )
 
-    # ===== ACTION BUTTONS =====
-    kb.add(
-        InlineKeyboardButton("🧹 Clear Cart", callback_data="clearcart")
-    )
-    kb.add(
+    # ===== ACTION BUTTONS (LAYI 1: 1   2) =====
+    kb.row(
+        InlineKeyboardButton("🧹 Clear Cart", callback_data="clearcart"),
         InlineKeyboardButton("💵 CHECKOUT", callback_data="checkout")
     )
 
-   
+    # ===== OUR CHANNEL BUTTON =====
+    kb.row(
+        InlineKeyboardButton(
+            "🏘Our Channel",
+            url=f"https://t.me/{CHANNEL.lstrip('@')}"
+        )
+    )
 
     return text, kb
 # ================= ADMIN ON / OFF =================
@@ -2466,7 +2471,7 @@ def groupitem_deeplink_handler(msg):
         return
 
     if not item_ids:
-        bot.send_message(uid, "❌ Babu item.")
+        bot.send_message(uid, "❌ No items found.")
         return
 
     placeholders = ",".join("?" * len(item_ids))
@@ -2484,16 +2489,16 @@ def groupitem_deeplink_handler(msg):
         bot.send_message(uid, "❌ Items not found.")
         return
 
-    # 🛑 KAR A SAYAR DA ITEM MARA FILE
+    # 🛑 DO NOT SELL ITEMS WITHOUT FILE
     items = [i for i in items if i["file_id"]]
     if not items:
-        bot.send_message(uid, "❌ Babu item mai file.")
+        bot.send_message(uid, "❌ No downloadable items available.")
         return
 
     # 🔹 DISPLAY TITLE (SERIES NAME)
     display_title = items[0]["title"]
 
-    # 🛑 KARIYA 1: OWNERSHIP (ITEM LEVEL ✔️)
+    # 🛑 PROTECTION 1: OWNERSHIP (ITEM LEVEL ✔️)
     owned = conn.execute(
         f"""
         SELECT 1 FROM user_movies
@@ -2505,29 +2510,28 @@ def groupitem_deeplink_handler(msg):
 
     if owned:
         kb = InlineKeyboardMarkup()
-        kb.add(InlineKeyboardButton("🎥PAID MOVIES", callback_data="my_movies"))
+        kb.add(InlineKeyboardButton("🎥 PAID MOVIES", callback_data="my_movies"))
         bot.send_message(
             uid,
-            "✅ <b>Ka riga ka mallaki wannan fim tini/n/n DUBA MY MOVIES\n Acen zaka rubuta sunansa za'a sake turama kyauta idan kana bukata.</b>",
+            "✅ <b>You already own this movie.\nGo to PAID MOVIES to download it again.</b>",
             parse_mode="HTML",
             reply_markup=kb
         )
         return
 
     # ===============================
-    # ✅ TOTAL (GROUP-AWARE – PRICE 1)
+    # ✅ TOTAL (GROUP-AWARE – SINGLE PRICE)
     # ===============================
     groups = {}
 
     for i in items:
         key = i["group_key"] or f"single_{i['id']}"
-
         if key not in groups:
             groups[key] = int(i["price"] or 0)
 
     total = sum(groups.values())
 
-    # 🛑 KARIYA 2: UNPAID ORDER MAI WANNAN ITEMS (ITEM LEVEL ✔️)
+    # 🛑 PROTECTION 2: EXISTING UNPAID ORDER FOR THESE ITEMS
     old = conn.execute(
         f"""
         SELECT o.id, o.amount
@@ -2565,15 +2569,6 @@ def groupitem_deeplink_handler(msg):
 
         conn.commit()
 
-    # 🧪 DEBUG
-    dbg = (
-        "🤩<b>SERIES ORDER CREATED</b>\n\n"
-        f"• {display_title}\n"
-        f"📦 Episodes: {len(items)}\n"
-    )
-
-    bot.send_message(uid, dbg, parse_mode="HTML")
-
     title = display_title
 
     # ✅ PAYSTACK PAYMENT LINK
@@ -2588,18 +2583,13 @@ def groupitem_deeplink_handler(msg):
 
     bot.send_message(
         uid,
-        f"""🧾 <b>FILMS CHECKOUT</b>
+        f"""🧺<b> New order</b>
 
-📦 <b>Items:</b> {len(items)}
+📩 <b>Items:</b> {len(items)}
 💵 <b>Total:</b> ₦{total}
 
 🆔 <b>Order ID:</b>
 <code>{order_id}</code>
-
-⚠️ <b>MUHIMMI:</b>
-<i>Ajiye wannan Order ID sosai.
-Idan wata matsala ta faru (biyan kudi ko delivery),
-ka tura wannan Order ID kai tsaye zuwa admin.</i>
 """,
         parse_mode="HTML",
         reply_markup=kb
@@ -3140,17 +3130,14 @@ Tura <b>/sendall</b> domin a sake tura items.""",
 
         ADMIN_SUPPORT.pop(m.from_user.id, None)
 
-
-
-
 import time
 
-# ===== PAY ALL UNPAID (FINAL SAFE – CHECKOUT STYLE | PAYSTACK) =====
+# ===== PAY ALL UNPAID (FINAL | PAYSTACK | CLEAN) =====
 @bot.callback_query_handler(func=lambda c: c.data == "payall:")
 def pay_all_unpaid(call):
     user_id = call.from_user.id
 
-    # 1️⃣ DAUKO DUK UNPAID ITEMS
+    # 1️⃣ FETCH ALL UNPAID ITEMS
     rows = conn.execute(
         """
         SELECT
@@ -3168,16 +3155,16 @@ def pay_all_unpaid(call):
     ).fetchall()
 
     if not rows:
-        bot.answer_callback_query(call.id, "❌ Babu unpaid order")
+        bot.answer_callback_query(call.id, "❌ No unpaid orders found")
         return
 
-    # 🔒 KAR A SHIGA ITEM MARA FILE
+    # 🔒 EXCLUDE ITEMS WITHOUT FILE
     rows = [r for r in rows if r["file_id"] and int(r["price"] or 0) > 0]
     if not rows:
-        bot.answer_callback_query(call.id, "❌ Babu item mai delivery")
+        bot.answer_callback_query(call.id, "❌ No deliverable items found")
         return
 
-    # 🛑 HANA SIYAN ABIN DA AKA RIGA AKA BIYA
+    # 🛑 PREVENT BUYING ITEMS ALREADY PAID FOR
     filtered = []
     for r in rows:
         paid_before = conn.execute(
@@ -3196,10 +3183,10 @@ def pay_all_unpaid(call):
 
     rows = filtered
     if not rows:
-        bot.answer_callback_query(call.id, "❌ Ka riga ka sayi dukkan wadannan items")
+        bot.answer_callback_query(call.id, "❌ You have already purchased all these items")
         return
 
-    # ================== TOTAL (CHECKOUT STYLE) ==================
+    # ================== TOTAL (GROUP-AWARE) ==================
     groups = {}
 
     for r in rows:
@@ -3218,13 +3205,12 @@ def pay_all_unpaid(call):
         groups[key]["items"].append(r)
 
     total_amount = sum(g["price"] for g in groups.values())
-    # ===========================================================
-
     if total_amount <= 0:
         bot.answer_callback_query(call.id, "❌ Amount error")
         return
+    # =========================================================
 
-    # 🛑 AMFANI DA UNPAID ORDER ƊAYA KAWAI
+    # 🛑 USE ONLY ONE EXISTING UNPAID ORDER
     old = conn.execute(
         """
         SELECT id
@@ -3237,38 +3223,24 @@ def pay_all_unpaid(call):
     ).fetchone()
 
     if not old:
-        bot.answer_callback_query(call.id, "❌ Babu unpaid order da za a biya.")
+        bot.answer_callback_query(call.id, "❌ No unpaid order found")
         return
 
     order_id = old["id"]
 
-    # 🔒 SABUNTA AMOUNT KAWAI
+    # 🔒 UPDATE AMOUNT ONLY
     conn.execute(
         "UPDATE orders SET amount=? WHERE id=?",
         (total_amount, order_id)
     )
     conn.commit()
 
-    # ================== DEBUG (KAR A CIRE) ==================
-    dbg = "🤩 <b>PAY-ALL ORDER READY</b>\n\n"
-
-    for g in groups.values():
-        items = g["items"]
-
-        if items[0]["group_key"]:
-            dbg += (
-                f"• {items[0]['item_title']}\n"
-                f"📦 Episodes: {len(items)}\n"
-            )
-        else:
-            dbg += f"• {items[0]['item_title']}\n"
-
-    bot.send_message(user_id, dbg, parse_mode="HTML")
-
     # ================== PAYSTACK ==================
+    paystack_ref = f"{order_id}_{int(time.time())}"
+
     pay_url = create_paystack_payment(
         user_id,
-        order_id,
+        paystack_ref,
         total_amount,
         "Pay All Orders"
     )
@@ -3283,23 +3255,20 @@ def pay_all_unpaid(call):
 
     bot.send_message(
         user_id,
-        f"""🧾 <b>PAY ALL ORDERS</b>
+        f"""🧺 <b>Old Orders</b>
 
-📦 <b>Groups:</b> {len(groups)}
-💰 <b>Total:</b> ₦{int(total_amount)}
+📩 <b>Groups:</b> {len(groups)}
+💵 <b>Total Amount:</b> ₦{int(total_amount)}
 
 🆔 <b>Order ID:</b>
 <code>{order_id}</code>
-
-⚠️ <b>GARGADI:</b>
-<i>Da fatan ka adana wannan Order ID sosai.</i>
-<i>Idan wata matsala ta faru wajen biya ko delivery, tuntubi admin tare da Order ID.</i>
 """,
         parse_mode="HTML",
         reply_markup=kb
     )
 
     bot.answer_callback_query(call.id)
+
 # ===================== BUY ALL (CUSTOM IDS | PAYSTACK) =====================
 @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("buyall:"))
 def buy_all_handler(c):
@@ -3849,6 +3818,7 @@ def handle_callback(c):
 
 
 
+
     # ==================================================
     # CHECKOUT (GROUP-AWARE)
     # ==================================================
@@ -3888,7 +3858,7 @@ def handle_callback(c):
             total += g["price"]
 
         if total <= 0:
-            bot.answer_callback_query(c.id, "❌ Farashi bai dace ba.")
+            bot.answer_callback_query(c.id, "❌ Invalid price.")
             return
 
         # 1️⃣ CREATE ORDER
@@ -3915,18 +3885,6 @@ def handle_callback(c):
         conn.commit()
         clear_cart(uid)
 
-        # DISPLAY
-        msg = "🤩 <b>CHECKOUT ORDER CREATED</b>\n\n"
-        for key, g in groups.items():
-            items = g["items"]
-            title = items[0][1]
-            if not key.startswith("single_"):
-                msg += f"• {title} — 📦 Series ({len(items)})\n"
-            else:
-                msg += f"• {title}\n"
-
-        bot.send_message(uid, msg, parse_mode="HTML")
-
         # PAYMENT (PAYSTACK)
         pay_url = create_paystack_payment(
             uid,
@@ -3945,7 +3903,7 @@ def handle_callback(c):
 
         bot.send_message(
             uid,
-            f"""🧾 <b>CART ORDER</b>
+            f"""🧺 <b>CART ORDER</b>
 
 💵 <b>Price:</b> ₦{total}
 🎞 <b>Items:</b> {len(groups)}
@@ -3959,6 +3917,7 @@ def handle_callback(c):
 
         bot.answer_callback_query(c.id)
         return
+    
 
     # ==================================================
     # BUY / BUYDM
