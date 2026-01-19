@@ -3133,12 +3133,12 @@ Tura <b>/sendall</b> domin a sake tura items.""",
 
         ADMIN_SUPPORT.pop(m.from_user.id, None)
 
-import time
+import uuid
 
-# ===== PAY ALL UNPAID (FINAL | PAYSTACK | CLEAN) =====
+# ===== PAY ALL UNPAID (FIXED | GROUP-AWARE | WEBHOOK SAFE) =====
 @bot.callback_query_handler(func=lambda c: c.data == "payall:")
 def pay_all_unpaid(call):
-    user_id = call.from_user.id
+    uid = call.from_user.id
 
     # 1️⃣ FETCH ALL UNPAID ITEMS
     rows = conn.execute(
@@ -3147,57 +3147,58 @@ def pay_all_unpaid(call):
             oi.item_id,
             oi.file_id,
             oi.price,
-            i.title AS item_title,
+            i.title,
             i.group_key
         FROM orders o
         JOIN order_items oi ON oi.order_id = o.id
         JOIN items i ON i.id = oi.item_id
         WHERE o.user_id=? AND o.paid=0
         """,
-        (user_id,)
+        (uid,)
     ).fetchall()
 
     if not rows:
         bot.answer_callback_query(call.id, "❌ No unpaid orders found")
         return
 
-    # 🔒 EXCLUDE ITEMS WITHOUT FILE
-    rows = [r for r in rows if r["file_id"] and int(r["price"] or 0) > 0]
+    # 2️⃣ FILTER VALID ITEMS ONLY
+    rows = [
+        r for r in rows
+        if r["file_id"] and int(r["price"] or 0) > 0
+    ]
     if not rows:
-        bot.answer_callback_query(call.id, "❌ No deliverable items found")
+        bot.answer_callback_query(call.id, "❌ No deliverable items")
         return
 
-    # 🛑 PREVENT BUYING ITEMS ALREADY PAID FOR
-    filtered = []
+    # 3️⃣ REMOVE ITEMS ALREADY PAID FOR
+    clean = []
     for r in rows:
-        paid_before = conn.execute(
+        paid = conn.execute(
             """
             SELECT 1
             FROM orders o
-            JOIN order_items oi ON oi.order_id = o.id
+            JOIN order_items oi ON oi.order_id=o.id
             WHERE o.user_id=? AND o.paid=1 AND oi.item_id=?
             LIMIT 1
             """,
-            (user_id, r["item_id"])
+            (uid, r["item_id"])
         ).fetchone()
+        if not paid:
+            clean.append(r)
 
-        if not paid_before:
-            filtered.append(r)
-
-    rows = filtered
+    rows = clean
     if not rows:
-        bot.answer_callback_query(call.id, "❌ You have already purchased all these items")
+        bot.answer_callback_query(call.id, "❌ Items already owned")
         return
 
-    # ================== TOTAL (GROUP-AWARE) ==================
+    # ==================================================
+    # 4️⃣ GROUP-AWARE TOTAL (KAR A RUSA GROUP KEY)
+    # ==================================================
     groups = {}
 
     for r in rows:
-        price = int(r["price"] or 0)
-        if price <= 0:
-            continue
-
         key = r["group_key"] or f"single_{r['item_id']}"
+        price = int(r["price"] or 0)
 
         if key not in groups:
             groups[key] = {
@@ -3209,47 +3210,53 @@ def pay_all_unpaid(call):
 
     total_amount = sum(g["price"] for g in groups.values())
     if total_amount <= 0:
-        bot.answer_callback_query(call.id, "❌ Amount error")
-        return
-    # =========================================================
-
-    # 🛑 USE ONLY ONE EXISTING UNPAID ORDER
-    old = conn.execute(
-        """
-        SELECT id
-        FROM orders
-        WHERE user_id=? AND paid=0
-        ORDER BY ROWID DESC
-        LIMIT 1
-        """,
-        (user_id,)
-    ).fetchone()
-
-    if not old:
-        bot.answer_callback_query(call.id, "❌ No unpaid order found")
+        bot.answer_callback_query(call.id, "❌ Invalid total")
         return
 
-    order_id = old["id"]
+    # ==================================================
+    # 5️⃣ CREATE *NEW* ORDER (WEBHOOK SAFE)
+    # ==================================================
+    order_id = str(uuid.uuid4())
 
-    # 🔒 UPDATE AMOUNT ONLY
     conn.execute(
-        "UPDATE orders SET amount=? WHERE id=?",
-        (total_amount, order_id)
+        """
+        INSERT INTO orders (id, user_id, amount, paid)
+        VALUES (?, ?, ?, 0)
+        """,
+        (order_id, uid, total_amount)
     )
+
+    # 6️⃣ INSERT ORDER ITEMS (LIKE GROUPITEM)
+    for g in groups.values():
+        for r in g["items"]:
+            conn.execute(
+                """
+                INSERT INTO order_items
+                (order_id, item_id, file_id, price)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    order_id,
+                    r["item_id"],
+                    r["file_id"],
+                    g["price"]   # 👈 group-aware price
+                )
+            )
+
     conn.commit()
 
-    # ================== PAYSTACK ==================
-    paystack_ref = f"{order_id}_{int(time.time())}"
-
+    # ==================================================
+    # 7️⃣ PAYSTACK (REFERENCE = ORDER_ID)
+    # ==================================================
     pay_url = create_paystack_payment(
-        user_id,
-        paystack_ref,
+        uid,
+        order_id,        # 🔥 VERY IMPORTANT
         total_amount,
         "Pay All Orders"
     )
 
     if not pay_url:
-        bot.send_message(user_id, "❌ Payment error.")
+        bot.send_message(uid, "❌ Payment error.")
         return
 
     kb = InlineKeyboardMarkup()
@@ -3257,10 +3264,10 @@ def pay_all_unpaid(call):
     kb.add(InlineKeyboardButton("❌ Cancel", callback_data=f"cancel:{order_id}"))
 
     bot.send_message(
-        user_id,
-        f"""🧺 <b>Old Orders</b>
+        uid,
+        f"""🧺 <b>PAY ALL ORDERS</b>
 
-📩 <b>Total Items:</b> {len(groups)}
+📦 <b Items:</b> {len(groups)}
 💵 <b>Total Amount:</b> ₦{int(total_amount)}
 
 🆔 <b>Order ID:</b>
@@ -3271,6 +3278,8 @@ def pay_all_unpaid(call):
     )
 
     bot.answer_callback_query(call.id)
+
+
 
 # ===================== BUY ALL (CUSTOM IDS | PAYSTACK) =====================
 @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("buyall:"))
