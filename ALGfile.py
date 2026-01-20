@@ -2479,143 +2479,142 @@ ka tura wannan Order ID kai tsaye zuwa admin.</i>
         reply_markup=kb
     )
 
-# ========= GROUPITEM (ITEMS ONLY | DEEP LINK → DM) =========  
-@bot.message_handler(func=lambda m: m.text and m.text.startswith("/start groupitem_"))  
-def groupitem_deeplink_handler(msg):  
-    try:  
-        uid = msg.from_user.id  
-        raw = msg.text.split("groupitem_", 1)[1]  
-        sep = "_" if "_" in raw else ","  
-        item_ids = [int(x) for x in raw.split(sep) if x.strip().isdigit()]  
-    except:  
-        bot.reply_to(msg, "❌ Invalid link.")  
-        return  
-  
-    if not item_ids:  
-        bot.send_message(uid, "❌ No items found.")  
-        return  
-  
-    placeholders = ",".join("?" * len(item_ids))  
-  
-    items = conn.execute(  
-        f"""  
-        SELECT id, title, price, file_id, group_key  
-        FROM items  
-        WHERE id IN ({placeholders})  
-        """,  
-        item_ids  
-    ).fetchall()  
-  
-    if not items:  
-        bot.send_message(uid, "❌ Items not found.")  
-        return  
-  
-    # 🛑 DO NOT SELL ITEMS WITHOUT FILE  
-    items = [i for i in items if i["file_id"]]  
-    if not items:  
-        bot.send_message(uid, "❌ No downloadable items available.")  
-        return  
-  
-    # 🔹 DISPLAY TITLE (SERIES NAME)  
-    display_title = items[0]["title"]  
-  
-    # 🛑 PROTECTION 1: OWNERSHIP (ITEM LEVEL ✔️)  
-    owned = conn.execute(  
-        f"""  
-        SELECT 1 FROM user_movies  
-        WHERE user_id=? AND item_id IN ({placeholders})  
-        LIMIT 1  
-        """,  
-        (uid, *[i["id"] for i in items])  
-    ).fetchone()  
-  
-    if owned:  
-        kb = InlineKeyboardMarkup()  
-        kb.add(InlineKeyboardButton("🎥 PAID MOVIES", callback_data="my_movies"))  
-        bot.send_message(  
-            uid,  
-            "✅ <b>You already own this movie.\nGo to PAID MOVIES to download it again.</b>",  
-            parse_mode="HTML",  
-            reply_markup=kb  
-        )  
-        return  
-  
-    # ===============================  
-    # ✅ TOTAL (GROUP-AWARE – SINGLE PRICE)  
-    # ===============================  
-    groups = {}  
-  
-    for i in items:  
-        key = i["group_key"] or f"single_{i['id']}"  
-        if key not in groups:  
-            groups[key] = int(i["price"] or 0)  
-  
-    total = sum(groups.values())  
-  
-    # 🛑 PROTECTION 2: EXISTING UNPAID ORDER FOR THESE ITEMS  
-    old = conn.execute(  
-        f"""  
-        SELECT o.id, o.amount  
-        FROM orders o  
-        JOIN order_items oi ON oi.order_id = o.id  
-        WHERE o.user_id=? AND o.paid=0  
-          AND oi.item_id IN ({placeholders})  
-        LIMIT 1  
-        """,  
-        (uid, *[i["id"] for i in items])  
-    ).fetchone()  
-  
-    if old:  
-        order_id = old["id"]  
-        total = old["amount"]  
-    else:  
-        order_id = str(uuid.uuid4())  
-  
-        conn.execute(  
-            """  
-            INSERT INTO orders (id, user_id, amount, paid)  
-            VALUES (?, ?, ?, 0)  
-            """,  
-            (order_id, uid, total)  
-        )  
-  
-        for i in items:  
-            conn.execute(  
-                """  
-                INSERT INTO order_items (order_id, item_id, file_id, price)  
-                VALUES (?, ?, ?, ?)  
-                """,  
-                (order_id, i["id"], i["file_id"], int(i["price"] or 0))  
-            )  
-  
-        conn.commit()  
-  
-    title = display_title  
-  
-    # ✅ PAYSTACK PAYMENT LINK  
-    pay_url = create_paystack_payment(uid, order_id, total, title)  
-    if not pay_url:  
-        bot.send_message(uid, "Kana DA ts oh on order baka karasa biya ba, duba pending order din ka.")  
-        return  
-  
-    kb = InlineKeyboardMarkup()  
-    kb.add(InlineKeyboardButton("💳 PAY NOW", url=pay_url))  
-    kb.add(InlineKeyboardButton("❌ Cancel", callback_data=f"cancel:{order_id}"))  
-  
-    bot.send_message(  
-        uid,  
-        f"""🧺<b> New order</b>  
-  
-📩 <b>Items:</b> {len(items)}  
-💵 <b>Total amout:</b> ₦{total}  
-  
-🆔 <b>Order ID:</b>  
-<code>{order_id}</code>  
-""",  
-        parse_mode="HTML",  
-        reply_markup=kb  
-    )  
-  
+# ========= GROUPITEM (ITEMS ONLY | DEEP LINK → DM) =========
+@bot.message_handler(func=lambda m: m.text and m.text.startswith("/start groupitem_"))
+def groupitem_deeplink_handler(msg):
+    try:
+        uid = msg.from_user.id
+        raw = msg.text.split("groupitem_", 1)[1]
+        sep = "_" if "_" in raw else ","
+        item_ids = [int(x) for x in raw.split(sep) if x.strip().isdigit()]
+    except:
+        bot.reply_to(msg, "❌ Invalid link.")
+        return
+
+    if not item_ids:
+        bot.send_message(uid, "❌ No items found.")
+        return
+
+    placeholders = ",".join("?" * len(item_ids))
+
+    items = conn.execute(
+        f"""
+        SELECT id, title, price, file_id, group_key
+        FROM items
+        WHERE id IN ({placeholders})
+        """,
+        item_ids
+    ).fetchall()
+
+    if not items:
+        bot.send_message(uid, "❌ Items not found.")
+        return
+
+    # 🛑 DO NOT SELL ITEMS WITHOUT FILE
+    items = [i for i in items if i["file_id"]]
+    if not items:
+        bot.send_message(uid, "❌ No downloadable items available.")
+        return
+
+    # 🔹 DISPLAY TITLE (SERIES NAME)
+    display_title = items[0]["title"]
+
+    # 🛑 PROTECTION 1: OWNERSHIP (ITEM LEVEL ✔️)
+    owned = conn.execute(
+        f"""
+        SELECT 1 FROM user_movies
+        WHERE user_id=? AND item_id IN ({placeholders})
+        LIMIT 1
+        """,
+        (uid, *[i["id"] for i in items])
+    ).fetchone()
+
+    if owned:
+        kb = InlineKeyboardMarkup()
+        kb.add(InlineKeyboardButton("🎥 PAID MOVIES", callback_data="my_movies"))
+        bot.send_message(
+            uid,
+            "✅ <b>You already own this movie.\nGo to PAID MOVIES to download it again.</b>",
+            parse_mode="HTML",
+            reply_markup=kb
+        )
+        return
+
+    # ===============================
+    # ✅ TOTAL (GROUP-AWARE – SINGLE PRICE)
+    # ===============================
+    groups = {}
+
+    for i in items:
+        key = i["group_key"] or f"single_{i['id']}"
+        if key not in groups:
+            groups[key] = int(i["price"] or 0)
+
+    total = sum(groups.values())
+
+    # 🛑 PROTECTION 2: EXISTING UNPAID ORDER FOR THESE ITEMS
+    old = conn.execute(
+        f"""
+        SELECT o.id, o.amount
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.id
+        WHERE o.user_id=? AND o.paid=0
+          AND oi.item_id IN ({placeholders})
+        LIMIT 1
+        """,
+        (uid, *[i["id"] for i in items])
+    ).fetchone()
+
+    if old:
+        order_id = old["id"]
+        total = old["amount"]
+    else:
+        order_id = str(uuid.uuid4())
+
+        conn.execute(
+            """
+            INSERT INTO orders (id, user_id, amount, paid)
+            VALUES (?, ?, ?, 0)
+            """,
+            (order_id, uid, total)
+        )
+
+        for i in items:
+            conn.execute(
+                """
+                INSERT INTO order_items (order_id, item_id, file_id, price)
+                VALUES (?, ?, ?, ?)
+                """,
+                (order_id, i["id"], i["file_id"], int(i["price"] or 0))
+            )
+
+        conn.commit()
+
+    title = display_title
+
+    # ✅ PAYSTACK PAYMENT LINK
+    pay_url = create_paystack_payment(uid, order_id, total, title)
+    if not pay_url:
+        bot.send_message(uid, "❌ Payment error, Kana da tsohon pending order na fim din nan.")
+        return
+
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("💳 PAY NOW", url=pay_url))
+    kb.add(InlineKeyboardButton("❌ Cancel", callback_data=f"cancel:{order_id}"))
+
+    bot.send_message(
+        uid,
+        f"""🧺<b> New order</b>
+
+📩 <b>Items:</b> {len(items)}
+💵 <b>Total amout:</b> ₦{total}
+
+🆔 <b>Order ID:</b>
+<code>{order_id}</code>
+""",
+        parse_mode="HTML",
+        reply_markup=kb
+    )
 
 
 
