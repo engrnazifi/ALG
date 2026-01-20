@@ -2479,7 +2479,6 @@ ka tura wannan Order ID kai tsaye zuwa admin.</i>
         reply_markup=kb
     )
 
-
 # ========= GROUPITEM (ITEMS ONLY | DEEP LINK → DM) =========
 @bot.message_handler(func=lambda m: m.text and m.text.startswith("/start groupitem_"))
 def groupitem_deeplink_handler(msg):
@@ -2545,7 +2544,6 @@ def groupitem_deeplink_handler(msg):
     # ✅ TOTAL (GROUP-AWARE – SINGLE PRICE)
     # ===============================
     groups = {}
-
     for i in items:
         key = i["group_key"] or f"single_{i['id']}"
         if key not in groups:
@@ -2593,8 +2591,18 @@ def groupitem_deeplink_handler(msg):
 
     title = display_title
 
-    # ✅ PAYSTACK PAYMENT LINK
-    pay_url = create_paystack_payment(uid, order_id, total, title)
+    # ==================================================
+    # ✅ PAYSTACK (GYARA ƊAYA KAWAI – UNIQUE REFERENCE)
+    # ==================================================
+    pay_ref = f"{order_id}_{int(time.time())}"
+
+    pay_url = create_paystack_payment(
+        uid,
+        pay_ref,     # 🔥 PAYSTACK ONLY
+        total,
+        title
+    )
+
     if not pay_url:
         bot.send_message(uid, "❌ Payment error.")
         return
@@ -2616,6 +2624,7 @@ def groupitem_deeplink_handler(msg):
         parse_mode="HTML",
         reply_markup=kb
     )
+
 
 @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("buy_again:"))
 def buy_again_handler(c):
