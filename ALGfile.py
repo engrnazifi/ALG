@@ -346,7 +346,7 @@ PAYMENT_NOTIFY_GROUP = -1003555015230
 STORAGE_CHANNEL = -1003520788779
 SEND_ADMIN_PAYMENT_NOTIF = False
 
-ADMIN_USERNAME = "Nazifiibr"
+ADMIN_USERNAME = "CEOalgaitabot"
 
 
 # ========= IMPORTS =========
@@ -1166,7 +1166,7 @@ def reply_menu(uid=None):
     # ===== ADMIN ONLY BUTTONS =====
     if uid in ADMINS:
         kb.add(
-            InlineKeyboardButton("☢SERIES&ADD🎬", callback_data="groupitems")
+            InlineKeyboardButton("🏛SERIES&MOV🌐", callback_data="groupitems")
         )
 
     return kb
